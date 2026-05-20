@@ -9,8 +9,14 @@
     "allowJs": true,
     "incremental": true,
     "plugins": [{ "name": "next" }],
+    "noEmit": true,
+    "baseUrl": ".",
     "paths": {
-      "@/*": ["./*"]
+      "@/*": ["./*"],
+      "@survey/shared": ["../../packages/shared/src"],
+      "@survey/shared/*": ["../../packages/shared/src/*"],
+      "@survey/sdk": ["../../packages/sdk/src"],
+      "@survey/sdk/*": ["../../packages/sdk/src/*"]
     }
   },
   "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],

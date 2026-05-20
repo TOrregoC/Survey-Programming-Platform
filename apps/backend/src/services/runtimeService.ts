@@ -78,9 +78,21 @@ export async function submitAnswer(
     [questionId]: value,
   };
 
+  // Locate the just-answered question's block so the runtime walks forward
+  // from it rather than from the stale cursor on the session row.
+  const structure = survey.structure as unknown as SurveyDocument;
+  const answeredBlock = structure.blocks.find((b) =>
+    b.questions.some((q) => q.id === questionId),
+  );
+
   const sessionDto: SurveySession = toSessionDto(
-    { ...session, answers },
-    survey.structure as unknown as SurveyDocument,
+    {
+      ...session,
+      answers,
+      currentBlockId: answeredBlock?.id ?? session.currentBlockId,
+      currentQuestionId: questionId,
+    },
+    structure,
   );
   const next = runtime.getNextQuestion(sessionDto);
 

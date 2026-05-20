@@ -1,5 +1,5 @@
 import bcrypt from "bcryptjs";
-import jwt from "jsonwebtoken";
+import jwt, { type SignOptions } from "jsonwebtoken";
 import { prisma } from "../lib/prisma";
 import { getEnv } from "../lib/env";
 import { HttpError } from "../middleware/errorHandler";
@@ -54,11 +54,9 @@ export async function login(email: string, password: string) {
 
 export function issueTokens(userId: string, tenantId: string, role: string) {
   const env = getEnv();
-  const access = jwt.sign({ userId, tenantId, role }, env.JWT_SECRET, {
-    expiresIn: env.JWT_ACCESS_TTL,
-  });
-  const refresh = jwt.sign({ userId, tenantId, role, kind: "refresh" }, env.JWT_SECRET, {
-    expiresIn: env.JWT_REFRESH_TTL,
-  });
+  const accessOpts: SignOptions = { expiresIn: env.JWT_ACCESS_TTL as SignOptions["expiresIn"] };
+  const refreshOpts: SignOptions = { expiresIn: env.JWT_REFRESH_TTL as SignOptions["expiresIn"] };
+  const access = jwt.sign({ userId, tenantId, role }, env.JWT_SECRET, accessOpts);
+  const refresh = jwt.sign({ userId, tenantId, role, kind: "refresh" }, env.JWT_SECRET, refreshOpts);
   return { access, refresh };
 }

@@ -3,6 +3,7 @@ import {
   LOGIC_OPERATORS,
   QUESTION_TYPES,
 } from "../constants/questionTypes";
+import type { LogicCondition, LogicOperand } from "../types/survey";
 
 /**
  * Zod schemas for survey JSON validation.
@@ -49,7 +50,7 @@ export const blockSchema = z.object({
   questions: z.array(questionSchema),
 });
 
-export const logicOperandSchema: z.ZodType<unknown> = z.lazy(() =>
+export const logicOperandSchema: z.ZodType<LogicOperand> = z.lazy(() =>
   z.union([
     z.object({ type: z.literal("response"), questionId: z.string() }),
     z.object({
@@ -60,7 +61,7 @@ export const logicOperandSchema: z.ZodType<unknown> = z.lazy(() =>
   ]),
 );
 
-export const logicConditionSchema: z.ZodType<unknown> = z.lazy(() =>
+export const logicConditionSchema: z.ZodType<LogicCondition> = z.lazy(() =>
   z.object({
     operator: z.enum(LOGIC_OPERATORS),
     left: logicOperandSchema,

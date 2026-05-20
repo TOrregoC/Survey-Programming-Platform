@@ -37,14 +37,18 @@ npm install
 # 2. Boot databases
 docker-compose up -d
 
-# 3. Configure environment
-cp .env.example .env
+# 3. Configure environment (per workspace)
+cp apps/backend/.env.example apps/backend/.env
+cp apps/frontend/.env.local.example apps/frontend/.env.local
 
 # 4. Generate Prisma client and apply migrations
 npm run db:generate
 npm run db:migrate
 
-# 5. Start all apps in dev
+# 5. (optional) seed a demo tenant + admin
+npm run db:seed --workspace=apps/backend
+
+# 6. Start all apps in dev
 npm run dev
 ```
 
