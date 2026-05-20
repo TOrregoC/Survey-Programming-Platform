@@ -148,14 +148,23 @@ export async function publishSurvey(token: string, id: string): Promise<Survey> 
 
 // ---------- runtime (public) ----------
 
+export interface RuntimeSurveyPayload {
+  session: SurveySession;
+  survey: { id: string; title: string; structure: SurveyDocument };
+}
+
 export async function startSession(
   surveyId: string,
   embeddedData?: Record<string, string | number | boolean>,
-): Promise<{ session: SurveySession; survey: { id: string; title: string; structure: SurveyDocument } }> {
+): Promise<RuntimeSurveyPayload> {
   return request("/runtime/surveys/" + surveyId + "/start", {
     method: "POST",
     body: JSON.stringify({ embeddedData: embeddedData ?? {} }),
   });
+}
+
+export async function getSession(sessionId: string): Promise<RuntimeSurveyPayload> {
+  return request(`/runtime/sessions/${sessionId}`);
 }
 
 export async function submitAnswer(

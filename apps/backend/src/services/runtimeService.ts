@@ -49,7 +49,10 @@ export async function getSessionState(sessionId: string) {
     include: { survey: true },
   });
   if (!session) throw new HttpError(404, "Session not found");
-  return toSessionDto(session, session.survey.structure as unknown as SurveyDocument);
+  return {
+    session: toSessionDto(session, session.survey.structure as unknown as SurveyDocument),
+    survey: session.survey,
+  };
 }
 
 export async function submitAnswer(
@@ -96,13 +99,17 @@ export async function submitAnswer(
   );
   const next = runtime.getNextQuestion(sessionDto);
 
+  // Persist the cursor as the *just-answered* question. The runtime's
+  // getNextQuestion(session) treats currentQuestionId as the last answered
+  // and walks forward from there — keeping the DB consistent with that
+  // contract is what makes session resume work after a page refresh.
   const updated = await prisma.runtimeSession.update({
     where: { id: session.id },
     data: {
       answers: answers as Prisma.InputJsonValue,
       status: "in_progress",
-      currentBlockId: next?.block.id ?? session.currentBlockId,
-      currentQuestionId: next?.question.id ?? null,
+      currentBlockId: answeredBlock?.id ?? session.currentBlockId,
+      currentQuestionId: questionId,
     },
   });
 

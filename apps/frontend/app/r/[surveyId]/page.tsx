@@ -10,17 +10,22 @@ import type {
   SurveySession,
 } from "@survey/shared";
 import * as api from "@/lib/api";
+import { ApiError } from "@/lib/api";
 import { QuestionRenderer } from "@/components/question-renderer";
 
 type Phase = "loading" | "running" | "complete" | "error";
+
+const STORAGE_PREFIX = "survey.session:";
+const storageKey = (surveyId: string) => `${STORAGE_PREFIX}${surveyId}`;
 
 /**
  * Public respondent page — no auth required. Drives the platform's runtime
  * endpoints (start, answer, complete) and uses {@link SurveyRuntime} from
  * the SDK locally for client-side validation and "what's next?" preview.
  *
- * The backend remains the source of truth: it validates again on each
- * /answer call and is the authority on session state.
+ * Resumes a session if one is stored in localStorage for this survey. The
+ * backend remains the source of truth: it validates again on each /answer
+ * call and is the authority on session state.
  */
 export default function RunnerPage() {
   const params = useParams<{ surveyId: string }>();
@@ -34,30 +39,87 @@ export default function RunnerPage() {
   const [draftValue, setDraftValue] = useState<AnswerValue | undefined>(undefined);
   const [fieldErrors, setFieldErrors] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
+  const [resumed, setResumed] = useState(false);
 
   const runtime = useMemo(() => (structure ? new SurveyRuntime(structure) : null), [structure]);
 
   useEffect(() => {
     let cancelled = false;
-    api
-      .startSession(surveyId)
-      .then(({ session, survey }) => {
-        if (cancelled) return;
-        setStructure(survey.structure);
-        setSession(session);
-        const rt = new SurveyRuntime(survey.structure);
-        const next = rt.getNextQuestion(session);
-        if (!next) {
-          setPhase("complete");
-          return;
+
+    async function boot() {
+      const stored = readStoredSessionId(surveyId);
+
+      if (stored) {
+        try {
+          const payload = await api.getSession(stored);
+          if (cancelled) return;
+          // A completed/abandoned session in storage means the respondent
+          // already finished — show the thank-you screen instead of
+          // silently starting a new submission.
+          if (payload.session.status === "completed") {
+            clearStoredSessionId(surveyId);
+            setPhase("complete");
+            return;
+          }
+          if (payload.session.status === "abandoned") {
+            clearStoredSessionId(surveyId);
+            // fall through to a fresh start
+          } else {
+            applyPayload(payload, true);
+            return;
+          }
+        } catch (err) {
+          // Session was deleted, expired, or otherwise unreachable — drop
+          // the stored id and start fresh below.
+          if (err instanceof ApiError && err.status === 404) {
+            clearStoredSessionId(surveyId);
+          } else {
+            if (cancelled) return;
+            setError(err instanceof Error ? err.message : "Failed to resume session");
+            setPhase("error");
+            return;
+          }
         }
-        setCurrent({ question: next.question, pipedTitle: next.pipedTitle });
-        setPhase("running");
-      })
-      .catch((err) => {
+      }
+
+      try {
+        const payload = await api.startSession(surveyId);
+        if (cancelled) return;
+        writeStoredSessionId(surveyId, payload.session.sessionId);
+        applyPayload(payload, false);
+      } catch (err) {
+        if (cancelled) return;
         setError(err instanceof Error ? err.message : "Failed to start survey");
         setPhase("error");
-      });
+      }
+    }
+
+    function applyPayload(payload: api.RuntimeSurveyPayload, wasResumed: boolean) {
+      setStructure(payload.survey.structure);
+      setSession(payload.session);
+      setResumed(wasResumed);
+      const rt = new SurveyRuntime(payload.survey.structure);
+      const next = rt.getNextQuestion(payload.session);
+      if (!next) {
+        // Session reached the end but never called /complete — finalize now.
+        // This handles the resumed-but-finished case as well as edge cases
+        // where the last submit returned next=null but the page crashed
+        // before completing.
+        api
+          .completeSession(payload.session.sessionId)
+          .catch(() => {})
+          .finally(() => {
+            if (cancelled) return;
+            clearStoredSessionId(surveyId);
+            setPhase("complete");
+          });
+        return;
+      }
+      setCurrent({ question: next.question, pipedTitle: next.pipedTitle });
+      setPhase("running");
+    }
+
+    boot();
     return () => {
       cancelled = true;
     };
@@ -92,11 +154,7 @@ export default function RunnerPage() {
 
   const onNext = async () => {
     if (draftValue === undefined && !current.question.required) {
-      // Allow skipping non-required questions by sending an empty answer.
-      // Backend treats undefined value as missing — we send "" so the answer
-      // is recorded and the cursor advances.
-      const v: AnswerValue = "";
-      return submit(v);
+      return submit("" as AnswerValue);
     }
     if (draftValue === undefined) {
       setFieldErrors(["This question is required"]);
@@ -119,14 +177,30 @@ export default function RunnerPage() {
       setSession(result.session);
       if (!result.next) {
         await api.completeSession(session.sessionId);
+        clearStoredSessionId(surveyId);
         setPhase("complete");
         return;
       }
       setCurrent({ question: result.next.question, pipedTitle: result.next.pipedTitle });
       setDraftValue(undefined);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to submit answer");
-      setPhase("error");
+      // Field-level validation from the server: surface as inline errors
+      // so the respondent can retry instead of being kicked to an error page.
+      if (
+        err instanceof ApiError &&
+        err.status === 400 &&
+        err.details &&
+        typeof err.details === "object" &&
+        "details" in err.details &&
+        (err.details as { details?: { errors?: string[] } }).details?.errors
+      ) {
+        setFieldErrors(
+          (err.details as { details: { errors: string[] } }).details.errors,
+        );
+      } else {
+        setError(err instanceof Error ? err.message : "Failed to submit answer");
+        setPhase("error");
+      }
     } finally {
       setSubmitting(false);
     }
@@ -144,9 +218,13 @@ export default function RunnerPage() {
           />
         </div>
       )}
-      <h1 className="text-sm uppercase tracking-widest text-slate-500 mb-6">
-        {structure.title}
-      </h1>
+
+      <div className="mb-6 flex items-center justify-between text-sm">
+        <span className="uppercase tracking-widest text-slate-500">{structure.title}</span>
+        {resumed && (
+          <span className="text-xs text-slate-500 italic">resumed where you left off</span>
+        )}
+      </div>
 
       <QuestionRenderer
         question={current.question}
@@ -179,4 +257,31 @@ function Centered({ children }: { children: React.ReactNode }) {
 
 function countQuestions(doc: SurveyDocument): number {
   return doc.blocks.reduce((acc, b) => acc + b.questions.length, 0);
+}
+
+function readStoredSessionId(surveyId: string): string | null {
+  if (typeof window === "undefined") return null;
+  try {
+    return window.localStorage.getItem(storageKey(surveyId));
+  } catch {
+    return null;
+  }
+}
+
+function writeStoredSessionId(surveyId: string, sessionId: string): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(storageKey(surveyId), sessionId);
+  } catch {
+    // Storage unavailable (private mode, quota) — resume just won't work.
+  }
+}
+
+function clearStoredSessionId(surveyId: string): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.removeItem(storageKey(surveyId));
+  } catch {
+    // ignore
+  }
 }
