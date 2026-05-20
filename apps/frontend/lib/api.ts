@@ -43,11 +43,12 @@ async function request<T>(
 
   const res = await fetch(`${API_BASE}${path}`, { ...init, headers });
   if (!res.ok) {
-    let detail: unknown = undefined;
+    const text = await res.text();
+    let detail: unknown = text;
     try {
-      detail = await res.json();
+      detail = JSON.parse(text);
     } catch {
-      detail = await res.text();
+      // leave detail as the raw text
     }
     const message =
       (detail && typeof detail === "object" && "error" in detail
