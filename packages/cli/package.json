@@ -1,0 +1,24 @@
+{
+  "name": "@survey/cli",
+  "version": "0.1.0",
+  "private": true,
+  "bin": {
+    "survey": "./src/main.ts"
+  },
+  "main": "./src/main.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "echo \"(lint placeholder)\"",
+    "test": "echo \"(no tests yet)\"",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@survey/shared": "0.1.0",
+    "@survey/sdk": "0.1.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.5",
+    "@types/node": "^20.12.7"
+  }
+}
