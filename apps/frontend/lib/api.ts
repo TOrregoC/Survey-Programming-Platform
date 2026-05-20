@@ -14,8 +14,9 @@ import type {
   SurveySession,
 } from "@survey/shared";
 
-export const API_BASE =
-  process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:5000";
+// Defaults to "" so all requests use relative URLs proxied by Next.js (next.config.mjs rewrites).
+// Set NEXT_PUBLIC_API_BASE_URL to hit the backend directly (e.g. in automated tests).
+export const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? "";
 
 export class ApiError extends Error {
   constructor(
