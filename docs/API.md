@@ -38,14 +38,23 @@ The `structure` field on create / patch must validate against `surveyDocumentSch
 
 ## Runtime (public — no auth)
 
-| Method | Path                                       | Description                |
-| ------ | ------------------------------------------ | -------------------------- |
-| POST   | `/runtime/surveys/:id/start`               | Start a session            |
-| GET    | `/runtime/sessions/:sessionId`             | Get current session state  |
-| POST   | `/runtime/sessions/:sessionId/answer`      | Submit a single answer     |
-| POST   | `/runtime/sessions/:sessionId/complete`    | Mark session complete      |
+| Method | Path                                       | Description                                     |
+| ------ | ------------------------------------------ | ----------------------------------------------- |
+| POST   | `/runtime/surveys/:id/start`               | Start a session                                 |
+| GET    | `/runtime/sessions/:sessionId`             | Get session state + survey structure for resume |
+| POST   | `/runtime/sessions/:sessionId/answer`      | Submit a single answer                          |
+| POST   | `/runtime/sessions/:sessionId/complete`    | Mark session complete                           |
 
 `start` accepts an optional `embeddedData` object — used for piping, branching, and analytics dimensions.
+
+`start` and `GET sessions/:id` both return the same payload shape so a client can resume a session on page refresh by storing the `sessionId` locally:
+
+```json
+{
+  "session": { "sessionId": "…", "status": "in_progress", "answers": { … } },
+  "survey":  { "id": "…", "title": "…", "structure": { … } }
+}
+```
 
 ## Responses
 

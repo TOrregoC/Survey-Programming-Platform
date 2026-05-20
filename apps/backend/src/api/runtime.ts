@@ -29,8 +29,11 @@ runtimeRouter.post("/surveys/:id/start", async (req, res, next) => {
 
 runtimeRouter.get("/sessions/:sessionId", async (req, res, next) => {
   try {
-    const session = await getSessionState(req.params.sessionId!);
-    res.json(session);
+    const { session, survey } = await getSessionState(req.params.sessionId!);
+    res.json({
+      session,
+      survey: { id: survey.id, title: survey.title, structure: survey.structure },
+    });
   } catch (err) {
     next(err);
   }
