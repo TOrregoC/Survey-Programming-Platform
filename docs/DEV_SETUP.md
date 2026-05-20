@@ -1,57 +1,64 @@
 # Development setup
 
 ## Prerequisites
-- Node.js 18+
+- Node.js 18+ (tested on 22)
 - npm 9+
-- Docker + Docker Compose (for Postgres + Redis)
+- PostgreSQL 15+ (Docker Compose works; native install also fine)
 
 ## First-time setup
 
 ```bash
-# 1. Install dependencies (monorepo workspaces)
+# 1. Install dependencies (npm workspaces)
 npm install
 
-# 2. Copy environment file and edit JWT_SECRET / DATABASE_URL if needed
-cp .env.example .env
+# 2. Copy env templates for each workspace
+cp apps/backend/.env.example apps/backend/.env
+cp apps/frontend/.env.local.example apps/frontend/.env.local
+# Edit JWT_SECRET and DATABASE_URL in apps/backend/.env if needed.
 
-# 3. Start Postgres and Redis
+# 3. Start Postgres (one of):
+#    a) Docker
 docker-compose up -d
+#    b) Native: install Postgres 15+, create user/db
+sudo service postgresql start
+sudo -u postgres psql -c "CREATE USER survey WITH PASSWORD 'survey' SUPERUSER;"
+sudo -u postgres psql -c "CREATE DATABASE survey_dev OWNER survey;"
 
 # 4. Generate Prisma client and apply migrations
 npm run db:generate
 npm run db:migrate
 
-# 5. (optional) Seed a demo tenant + admin user
+# 5. Seed a demo tenant + admin user (optional)
 npm run db:seed --workspace=apps/backend
+#   → email: admin@demo.local
+#   → password: password
 ```
 
 ## Day-to-day
 
 ```bash
-# Run frontend + backend together
+# Run frontend + backend together (turbo)
 npm run dev
 
 # Run only one
-npm run dev --workspace=apps/backend
-npm run dev --workspace=apps/frontend
+npm run dev --workspace=apps/backend     # → http://localhost:5000
+npm run dev --workspace=apps/frontend    # → http://localhost:3000
 
-# Type-check the whole repo
+# Type-check every workspace
 npm run typecheck
 
 # Run backend tests (Vitest)
 npm run test --workspace=apps/backend
 
-# Lint
+# Lint, format
 npm run lint
-
-# Format
 npm run format
 ```
 
 ## Database workflows
 
 ```bash
-# Create a new migration after editing schema.prisma
+# After editing schema.prisma, generate a new migration
 npm run db:migrate --workspace=apps/backend
 
 # Visual DB browser
@@ -61,13 +68,14 @@ npm run db:studio --workspace=apps/backend
 npm run db:seed --workspace=apps/backend
 ```
 
-## CLI
+## Why env files per workspace?
 
-```bash
-# From inside packages/cli
-npx tsx src/main.ts validate path/to/survey.json
-npx tsx src/main.ts export <surveyId> --out ./exported.json
-```
+Prisma's CLI loads `.env` from the directory containing `schema.prisma`, and
+Next.js loads `.env.local` from each app's directory. Keeping them per
+workspace means both tools pick the right values without extra plumbing,
+and production deploys can scope secrets cleanly.
+
+For the root `.env.example`, see the file — it's a pointer only.
 
 ## Folder cheatsheet
 

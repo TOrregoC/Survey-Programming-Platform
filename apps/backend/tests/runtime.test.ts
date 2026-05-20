@@ -186,4 +186,23 @@ describe("SurveyRuntime", () => {
     ]);
     expect(runtime.validateAnswer("q1", "Tomas")).toEqual([]);
   });
+
+  // Regression: the runtime service must set currentQuestionId to the
+  // just-answered question before asking for "next", otherwise the cursor
+  // never advances past the first question.
+  it("advances from q1 → q2 when cursor reflects the latest submission", () => {
+    const sessionAfterQ1 = freshSession({
+      currentBlockId: "b1",
+      currentQuestionId: "q1",
+      answers: { q1: "Alice" },
+    });
+    expect(runtime.getNextQuestion(sessionAfterQ1)?.question.id).toBe("q2");
+
+    const sessionAfterQ2 = freshSession({
+      currentBlockId: "b1",
+      currentQuestionId: "q2",
+      answers: { q1: "Alice", q2: "5" },
+    });
+    expect(runtime.getNextQuestion(sessionAfterQ2)?.question.id).toBe("q4");
+  });
 });

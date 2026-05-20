@@ -17,7 +17,9 @@ const app = express();
 
 app.use(cors({ origin: env.CORS_ORIGIN, credentials: true }));
 app.use(express.json({ limit: "2mb" }));
-app.use(pinoHttp({ logger }));
+// pino and pino-http ship slightly mismatched Logger generics; the runtime
+// shape is correct, so we narrow to `unknown` to silence the structural check.
+app.use(pinoHttp({ logger: logger as unknown as never }));
 
 app.get("/healthz", (_req, res) => {
   res.json({ ok: true, env: env.NODE_ENV });
