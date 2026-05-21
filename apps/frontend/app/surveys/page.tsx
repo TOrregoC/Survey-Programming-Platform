@@ -21,7 +21,7 @@ export default function SurveysPage() {
       .listSurveys(auth.token)
       .then(setSurveys)
       .catch((err) => setError(err instanceof Error ? err.message : "Failed to load"));
-  }, [auth]);
+  }, [auth?.token]);
 
   if (!auth) return null;
 
