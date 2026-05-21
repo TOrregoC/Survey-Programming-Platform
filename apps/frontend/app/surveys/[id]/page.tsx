@@ -39,7 +39,7 @@ export default function SurveyEditPage() {
         setStructure(s.structure);
       })
       .catch((err) => setError(err instanceof Error ? err.message : "Failed to load"));
-  }, [auth, surveyId]);
+  }, [auth?.token, surveyId]); // auth?.token is a stable string; auth object ref changes every render
 
   if (!auth) return null;
   if (!survey || !structure) {
