@@ -8,13 +8,10 @@ const nextConfig = {
     typedRoutes: false,
   },
   async rewrites() {
+    // All backend traffic is proxied under /api-proxy/ to avoid collisions
+    // with Next.js page routes like /surveys/[id].
     return [
-      { source: "/auth/:path*", destination: `${backendUrl}/auth/:path*` },
-      { source: "/surveys/:path*", destination: `${backendUrl}/surveys/:path*` },
-      { source: "/runtime/:path*", destination: `${backendUrl}/runtime/:path*` },
-      { source: "/responses/:path*", destination: `${backendUrl}/responses/:path*` },
-      { source: "/webhooks/:path*", destination: `${backendUrl}/webhooks/:path*` },
-      { source: "/healthz", destination: `${backendUrl}/healthz` },
+      { source: "/api-proxy/:path*", destination: `${backendUrl}/:path*` },
     ];
   },
 };
