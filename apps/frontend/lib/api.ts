@@ -14,9 +14,10 @@ import type {
   SurveySession,
 } from "@survey/shared";
 
-// Defaults to "" so all requests use relative URLs proxied by Next.js (next.config.mjs rewrites).
-// Set NEXT_PUBLIC_API_BASE_URL to hit the backend directly (e.g. in automated tests).
-export const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? "";
+// Defaults to /api-proxy so requests are proxied via Next.js (next.config.mjs rewrites),
+// avoiding CORS issues in cloud/remote environments.
+// Set NEXT_PUBLIC_API_BASE_URL to bypass the proxy and hit the backend directly.
+export const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? "/api-proxy";
 
 export class ApiError extends Error {
   constructor(
